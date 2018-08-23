@@ -4,6 +4,18 @@ use Mojo::Util 'md5_sum';
 
 use Storable;
 
+helper sample => sub {
+  my @dna = qw(a c g t);
+  return join '', map { $dna[int(rand($#dna))] } 1..605;
+};
+
+helper compare => sub {
+  my ($c, $a, $b) = @_;
+  $_ = $a ^ $b;
+  s/./ord $& ? "^" : " "/ge;
+  return $_;
+};
+
 get '/' => sub {
   my $c = shift;
   $c->stash(id => substr(md5_sum(time.$$.rand), 0, 6));
@@ -11,46 +23,42 @@ get '/' => sub {
 
 post '/:id' => sub {
   my $c = shift;
-  my %data = compare($c->param('id'), $c->param('name'), $c->param('id') eq 'sample' ? sample() : ($c->param('a'), $c->param('b')));
-  store(\%data, $c->app->home->child('id')->make_path->child($c->param('id')));
-  $c->render(%data);
+  store({map { $_ => $c->param($_) } qw/id name_a a name_b b/}, $c->app->home->child('id')->make_path->child($c->param('id')));
+  $c->redirect_to(id => {id => $c->param('id')});
+};
+
+get '/sample' => sub {
+  my $c = shift;
+  my $a = $c->sample;
+  my $b = $c->sample;
+  $c->render('id', id => 'sample', name_a => 'A', a => $a, name_b => 'B', b => $b, d => $c->compare($a, $b));
 };
 
 get '/:id' => sub {
   my $c = shift;
   my $data = retrieve($c->app->home->child('id')->make_path->child($c->param('id')));
-  $c->render(%$data);
+  $c->render(%$data, d => $c->compare($data->{a}, $data->{b}));
 };
-
-sub sample {
-  my @dna = qw(a c g t);
-  my $a = join '', map { $dna[int(rand($#dna))] } 1..605;
-  my $b = join '', map { $dna[int(rand($#dna))] } 1..605;
-  return ($a, $b);
-}
-
-sub compare {
-  my ($id, $name, $a, $b) = @_;
-  $_ = $a ^ $b;
-  s/./ord $& ? "^" : " "/ge;
-  return (id => $id, name => $name, a => $a, b => $b, d => $_);
-}
 
 app->start;
 
 __DATA__
 
 @@ index.html.ep
-<p><%= link_to url_for('/sample')->query(_method => 'POST')->to_abs => begin %>Sample<% end %></p>
+<p><%= link_to Sample => 'sample' %></p>
 %= form_for id => {id => $id} => (method => 'POST') => begin
 %= hidden_field id => $id
 <p>
-%= label_for name => 'Name'
-%= text_field 'name'
+%= label_for name_a => 'Name A'
+%= text_field 'name_a'
 </p>
 <p>
 %= label_for a => 'Seq A'
 %= text_area 'a', cols => 80
+</p>
+<p>
+%= label_for name_b => 'Name B'
+%= text_field 'name_b'
 </p>
 <p>
 %= label_for b => 'Seq B'
@@ -63,13 +71,17 @@ __DATA__
 % end
 
 @@ id.html.ep
-<p>ID: <%= $id %></p>
-<p>Name: <%= $name %></p>
+% use List::Util qw(max min);
+<p><%= link_to New => 'index' %></p>
+<p>ID: <%= link_to $id => 'id' => {id => $id } %></p>
+<p>Name A: <%= $name_a %></p>
+<p>Name B: <%= $name_b %></p>
 <pre>
-  % for ( my $i = 0; $i <= 605; $i+=80 ) {
-  <%= substr($a, $i, 80) %>
-  <%= substr($b, $i, 80) %>
-  <%= substr($d, $i, 80) %>
+  % my $break = min(length($a), length($b), 80);
+  % for ( my $i = 1; $i <= max(length($a), length($b)); $i+=$break ) {
+  <%= substr($a, $i-1, $break) %>
+  <%= substr($b, $i-1, $break) %>
+  <%= substr($d, $i-1, $break) %>
 
   % }
 </pre>
