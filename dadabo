@@ -6,7 +6,7 @@ use Storable;
 
 helper sample => sub {
   my @dna = qw(a c g t);
-  return join '', map { $dna[int(rand($#dna))] } 1..605;
+  return join '', map { $dna[int(rand($#dna+1))] } 1..605;
 };
 
 helper compare => sub {
