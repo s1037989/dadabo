@@ -1,0 +1,76 @@
+use Mojolicious::Lite;
+
+use Mojo::Util 'md5_sum';
+
+use Storable;
+
+get '/' => sub {
+  my $c = shift;
+  $c->stash(id => substr(md5_sum(time.$$.rand), 0, 6));
+} => 'index';
+
+post '/:id' => sub {
+  my $c = shift;
+  my %data = compare($c->param('id'), $c->param('name'), $c->param('id') eq 'sample' ? sample() : ($c->param('a'), $c->param('b')));
+  store(\%data, $c->app->home->child('id')->make_path->child($c->param('id')));
+  $c->render(%data);
+};
+
+get '/:id' => sub {
+  my $c = shift;
+  my $data = retrieve($c->app->home->child('id')->make_path->child($c->param('id')));
+  $c->render(%$data);
+};
+
+sub sample {
+  my @dna = qw(a c g t);
+  my $a = join '', map { $dna[int(rand($#dna))] } 1..605;
+  my $b = join '', map { $dna[int(rand($#dna))] } 1..605;
+  return ($a, $b);
+}
+
+sub compare {
+  my ($id, $name, $a, $b) = @_;
+  $_ = $a ^ $b;
+  s/./ord $& ? "^" : " "/ge;
+  return (id => $id, name => $name, a => $a, b => $b, d => $_);
+}
+
+app->start;
+
+__DATA__
+
+@@ index.html.ep
+<p><%= link_to url_for('/sample')->query(_method => 'POST')->to_abs => begin %>Sample<% end %></p>
+%= form_for id => {id => $id} => (method => 'POST') => begin
+%= hidden_field id => $id
+<p>
+%= label_for name => 'Name'
+%= text_field 'name'
+</p>
+<p>
+%= label_for a => 'Seq A'
+%= text_area 'a', cols => 80
+</p>
+<p>
+%= label_for b => 'Seq B'
+%= text_area 'b', cols => 80
+</p>
+<p>
+%= label_for submit => 'Show differences'
+%= submit_button 'submit'
+</p>
+% end
+
+@@ id.html.ep
+<p>ID: <%= $id %></p>
+<p>Name: <%= $name %></p>
+<pre>
+  % for ( my $i = 0; $i <= 605; $i+=80 ) {
+  <%= substr($a, $i, 80) %>
+  <%= substr($b, $i, 80) %>
+  <%= substr($d, $i, 80) %>
+
+  % }
+</pre>
+
