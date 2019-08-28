@@ -44,7 +44,20 @@ app->start;
 
 __DATA__
 
+@@ layouts/default.html.ep
+<!DOCTYPE html>
+<html>
+  <head>
+    <title><%= title %></title>
+    <link rel="stylesheet" type="text/css"
+      href="//yegor256.github.io/tacit/tacit.min.css"/>
+  </head>
+  <body><%= content %></body>
+</html>
+
 @@ index.html.ep
+% layout 'default';
+% title 'Dadabo';
 <p><%= link_to Sample => 'sample' %></p>
 %= form_for id => {id => $id} => (method => 'POST') => begin
 %= hidden_field id => $id
@@ -71,6 +84,8 @@ __DATA__
 % end
 
 @@ id.html.ep
+% layout 'default';
+% title $id;
 % use List::Util qw(max min);
 <p><%= link_to New => 'index' %></p>
 <p>ID: <%= link_to $id => 'id' => {id => $id } %></p>
